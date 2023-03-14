@@ -132,7 +132,7 @@ func (cache *Cache) saveToDisk(key string, val interface{}) error {
 	}
 	cache.metrics.DBWrites.Observe(float64(b.Len()))
 	return cache.ch.Update(func(conn clickhouse.Conn) error {
-		return conn.Exec(context.Background(), "insert into "+cache.ch.FQDN()+" values (?, ?)", cache.prefix+key, b.Bytes())
+		return conn.Exec(context.Background(), "insert into "+cache.ch.FQDN()+" values (?, ?, ?)", cache.prefix+key, b.String(), time.Now())
 	})
 }
 
@@ -215,18 +215,18 @@ func (cache *Cache) Lookup(key string) (interface{}, bool) {
 }
 
 type TableRow struct {
-	k string `db:"k"`
-	v string `db:"v"`
+	K string `db:"k" ch:"k"`
+	V string `db:"v" ch:"v"`
 }
 
-func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
+func (cache *Cache) iterate(key string, createNotFound bool) (interface{}, error) {
 	cache.metrics.ReadsCounter.Inc()
 	return cache.lfu.GetOrSet(key, func() (interface{}, error) {
 		cache.metrics.MissesCounter.Inc()
 		var rows driver.Rows
 		var err error
 		err = cache.ch.View(func(conn clickhouse.Conn) error {
-			rows, err = conn.Query(context.Background(), "select v from "+cache.ch.FQDN()+" where k = ? limit 1", key)
+			rows, err = conn.Query(context.Background(), "select v from "+cache.ch.FQDN()+" where k = ? order by timestamp desc limit 1", cache.prefix+key)
 			return err
 		})
 		if err != nil {
@@ -237,7 +237,7 @@ func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
 		var row TableRow
 		if rows.Next() {
 			recordNotFound = false
-			if err := rows.Scan(&row); err != nil {
+			if err := rows.ScanStruct(&row); err != nil {
 				return nil, err
 			}
 		}
@@ -245,8 +245,36 @@ func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
 			return cache.codec.New(key), nil
 		}
 
-		cache.metrics.DBReads.Observe(float64(len(row.v)))
-		return cache.codec.Deserialize(bytes.NewBufferString(row.v), key)
+		cache.metrics.DBReads.Observe(float64(len(row.V)))
+		return cache.codec.Deserialize(bytes.NewBufferString(row.V), key)
+	})
+}
+
+func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
+	cache.metrics.ReadsCounter.Inc()
+	return cache.lfu.GetOrSet(key, func() (interface{}, error) {
+		cache.metrics.MissesCounter.Inc()
+		var row TableRow
+		var buf []byte
+		err := cache.ch.View(func(conn clickhouse.Conn) error {
+			if err := conn.QueryRow(context.Background(), "select v from "+cache.ch.FQDN()+" where k = ? order by timestamp desc limit 1", cache.prefix+key).ScanStruct(&row); err != nil {
+				return err
+			}
+			buf = []byte(row.V)
+			return nil
+		})
+		switch {
+		default:
+			return nil, err
+		case err == nil:
+		case err != nil:
+			if createNotFound {
+				return cache.codec.New(key), nil
+			}
+			return nil, nil
+		}
+		cache.metrics.DBReads.Observe(float64(len(buf)))
+		return cache.codec.Deserialize(bytes.NewReader(buf), key)
 	})
 }
 

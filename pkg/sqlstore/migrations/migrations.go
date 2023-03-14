@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-gormigrate/gormigrate/v2"
+	"github.com/pyroscope-io/pyroscope/pkg/model/appmetadata"
 	"gorm.io/gorm"
 
 	"github.com/pyroscope-io/pyroscope/pkg/config"
@@ -153,24 +154,24 @@ func addIndexesUniqueTableMigration() *gormigrate.Migration {
 }
 
 func createApplicationMetadataTableMigration() *gormigrate.Migration {
-	type applicationMetadata struct {
-		ID              uint   `gorm:"primarykey"`
-		FQName          string `gorm:"uniqueIndex;not null;default:null"`
-		SpyName         string
-		SampleRate      uint32
-		Units           string
-		AggregationType string
-		CreatedAt       time.Time
-		UpdatedAt       time.Time
-	}
+	//type applicationMetadata struct {
+	//	ID              uint   `gorm:"primarykey"`
+	//	FQName          string `gorm:"uniqueIndex;not null;default:null"`
+	//	SpyName         string
+	//	SampleRate      uint32
+	//	Units           string
+	//	AggregationType string
+	//	CreatedAt       time.Time
+	//	UpdatedAt       time.Time
+	//}
 
 	return &gormigrate.Migration{
 		ID: "1667213046",
 		Migrate: func(tx *gorm.DB) error {
-			return tx.AutoMigrate(&applicationMetadata{})
+			return tx.AutoMigrate(&appmetadata.ApplicationMetadata{})
 		},
 		Rollback: func(tx *gorm.DB) error {
-			return tx.Migrator().DropTable(&applicationMetadata{})
+			return tx.Migrator().DropTable(&appmetadata.ApplicationMetadata{})
 		},
 	}
 }

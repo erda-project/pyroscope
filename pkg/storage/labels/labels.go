@@ -3,6 +3,7 @@ package labels
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/types"
@@ -20,15 +21,15 @@ func New(db types.ClickHouseDB) *Labels {
 }
 
 func (ll *Labels) PutLabels(labels map[string]string) error {
-	batch, err := ll.db.NewWriteBatch("insert into " + ll.db.FQDN() + " values (?, ?)")
+	batch, err := ll.db.NewWriteBatch("insert into " + ll.db.FQDN() + " values (?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	for k, v := range labels {
-		if err := batch.Append("l:"+k, nil); err != nil {
+		if err := batch.Append("l:"+k, nil, time.Now()); err != nil {
 			return err
 		}
-		if err := batch.Append("v:"+k+":"+v, nil); err != nil {
+		if err := batch.Append("v:"+k+":"+v, nil, time.Now()); err != nil {
 			return err
 		}
 	}
@@ -40,14 +41,14 @@ func (ll *Labels) Put(key, val string) {
 	kv := "v:" + key + ":" + val
 	// ks := "h:" + key + ":" + val + ":" + stree
 	err := ll.db.Update(func(conn clickhouse.Conn) error {
-		return conn.Exec(context.Background(), "insert into ? values (?, ?)", ll.db.FQDN(), kk, nil)
+		return conn.Exec(context.Background(), "insert into ? values (?, ?, ?)", ll.db.FQDN(), kk, nil, time.Now())
 	})
 	if err != nil {
 		// TODO: handle
 		panic(err)
 	}
 	err = ll.db.Update(func(conn clickhouse.Conn) error {
-		return conn.Exec(context.Background(), "insert into ? values (?, ?)", ll.db.FQDN(), kv, nil)
+		return conn.Exec(context.Background(), "insert into ? values (?, ?, ?)", ll.db.FQDN(), kv, nil, time.Now())
 	})
 	if err != nil {
 		// TODO: handle

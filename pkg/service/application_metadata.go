@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"net/url"
 
 	"github.com/pyroscope-io/pyroscope/pkg/model"
 	"github.com/pyroscope-io/pyroscope/pkg/model/appmetadata"
@@ -19,6 +20,21 @@ func NewApplicationMetadataService(db *gorm.DB) ApplicationMetadataService {
 
 func (svc ApplicationMetadataService) List(ctx context.Context) (apps []appmetadata.ApplicationMetadata, err error) {
 	tx := svc.db.WithContext(ctx)
+	query, ok := ctx.Value("query").(url.Values)
+	if ok {
+		if query.Get("projectID") != "" {
+			tx = tx.Where("project_id = ?", query.Get("projectID"))
+		}
+		if query.Get("workspace") != "" {
+			tx = tx.Where("workspace = ?", query.Get("workspace"))
+		}
+		if query.Get("orgID") != "" {
+			tx = tx.Where("org_id = ?", query.Get("orgID"))
+		}
+		if query.Get("appID") != "" {
+			tx = tx.Where("app_id = ?", query.Get("appID"))
+		}
+	}
 	result := tx.Find(&apps)
 	return apps, result.Error
 }

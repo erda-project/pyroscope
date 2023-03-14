@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -11,6 +13,7 @@ import (
 	"github.com/pyroscope-io/pyroscope/pkg/storage/types"
 	"github.com/sirupsen/logrus"
 
+	"github.com/pyroscope-io/pyroscope/pkg/config"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/cache"
 	"github.com/pyroscope-io/pyroscope/pkg/util/bytesize"
 )
@@ -50,10 +53,47 @@ func (s *Storage) newClickHouse(name string, p Prefix, codec cache.Codec) (Click
 	logger := logrus.New()
 	logger.SetLevel(s.config.badgerLogLevel)
 
-	ch, err := clickhouse.Open(&clickhouse.Options{
-		Addr:  s.config.chAddrs,
-		Debug: false,
-	})
+	type ClickhouseConfig struct {
+		ClickhouseAddr             string        `env:"CLICKHOUSE_ADDR" default:"localhost:9000"`
+		ClickhouseUsername         string        `env:"CLICKHOUSE_USERNAME" default:"default"`
+		ClickhousePassword         string        `env:"CLICKHOUSE_PASSWORD"`
+		ClickhouseDatabase         string        `env:"CLICKHOUSE_DATABASE" default:"pyroscope"`
+		ClickhouseDialTimeout      time.Duration `env:"CLICKHOUSE_DIAL_TIMEOUT" default:"1s"`
+		ClickhouseMaxIdleConns     int           `env:"CLICKHOUSE_MAX_IDLE_CONNS" default:"5"`
+		ClickhouseMaxOpenConns     int           `env:"CLICKHOUSE_MAX_OPEN_CONNS" default:"10"`
+		ClickhouseConnMaxLifeTime  time.Duration `env:"CLICKHOUSE_CONN_MAX_LIFETIME" default:"1h"`
+		ClickhouseConnOpenStrategy string        `env:"CLICKHOUSE_CONN_OPEN_STRATEGY" default:"in_order"`
+	}
+
+	var chConfig ClickhouseConfig
+	if err := config.Load(&chConfig); err != nil {
+		return nil, err
+	}
+	openStrategy := clickhouse.ConnOpenInOrder
+	switch chConfig.ClickhouseConnOpenStrategy {
+	case "0", "in_order":
+		openStrategy = clickhouse.ConnOpenInOrder
+	case "1", "round_robin":
+		openStrategy = clickhouse.ConnOpenRoundRobin
+	}
+
+	options := &clickhouse.Options{
+		Addr: strings.Split(chConfig.ClickhouseAddr, ","),
+		Auth: clickhouse.Auth{
+			//Database: chConfig.ClickhouseDatabase,
+			Username: chConfig.ClickhouseUsername,
+			Password: chConfig.ClickhousePassword,
+		},
+		// TODO use config
+		//DialTimeout:      chConfig.ClickhouseDialTimeout,
+		DialTimeout:      5 * time.Second,
+		MaxIdleConns:     chConfig.ClickhouseMaxIdleConns,
+		MaxOpenConns:     chConfig.ClickhouseMaxOpenConns,
+		ConnMaxLifetime:  chConfig.ClickhouseConnMaxLifeTime,
+		ConnOpenStrategy: openStrategy,
+	}
+
+	ch, err := clickhouse.Open(options)
 	if err != nil {
 		return nil, err
 	}

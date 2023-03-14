@@ -3,14 +3,16 @@ package jfr
 import (
 	"context"
 	"fmt"
+	"io"
+	"regexp"
+	"strings"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pyroscope-io/jfr-parser/parser"
 	"github.com/pyroscope-io/pyroscope/pkg/storage"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/metadata"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/segment"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/tree"
-	"io"
-	"regexp"
 )
 
 const (
@@ -278,6 +280,11 @@ func frames(st *parser.StackTrace) []string {
 		// TODO(abeaumont): Add support for line numbers.
 		if f.Method != nil && f.Method.Type != nil && f.Method.Type.Name != nil && f.Method.Name != nil {
 			frames = append(frames, f.Method.Type.Name.String+"."+f.Method.Name.String)
+		}
+	}
+	for _, v := range frames {
+		if strings.Contains(v, "label") {
+			fmt.Println(v)
 		}
 	}
 	return frames

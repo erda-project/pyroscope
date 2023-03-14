@@ -128,6 +128,7 @@ func Deserialize(d *dict.Dict, r io.Reader) (*Tree, error) {
 			// these strings has to be at least slightly different, hence base64 Addon
 			nameBuf.Reset()
 			nameBuf.WriteString("label not found " + base64.URLEncoding.EncodeToString(labelLinkBuf))
+			//continue
 		}
 		tn := parent.node.insert(nameBuf.Bytes())
 		tn.Self, err = varint.Read(br)

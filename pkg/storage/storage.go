@@ -100,7 +100,7 @@ func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health
 			writeBackTaskInterval:     time.Minute,
 			evictionTaskInterval:      20 * time.Second,
 			retentionTaskInterval:     10 * time.Minute,
-			cacheTTL:                  2 * time.Minute,
+			cacheTTL:                  2 * time.Second,
 			// gcSizeDiff specifies the minimal storage size difference that
 			// causes garbage collection to trigger.
 			gcSizeDiff: bytesize.GB,
