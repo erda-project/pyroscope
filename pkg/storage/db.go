@@ -80,13 +80,10 @@ func (s *Storage) newClickHouse(name string, p Prefix, codec cache.Codec) (Click
 	options := &clickhouse.Options{
 		Addr: strings.Split(chConfig.ClickhouseAddr, ","),
 		Auth: clickhouse.Auth{
-			//Database: chConfig.ClickhouseDatabase,
 			Username: chConfig.ClickhouseUsername,
 			Password: chConfig.ClickhousePassword,
 		},
-		// TODO use config
-		//DialTimeout:      chConfig.ClickhouseDialTimeout,
-		DialTimeout:      5 * time.Second,
+		DialTimeout:      chConfig.ClickhouseDialTimeout,
 		MaxIdleConns:     chConfig.ClickhouseMaxIdleConns,
 		MaxOpenConns:     chConfig.ClickhouseMaxOpenConns,
 		ConnMaxLifetime:  chConfig.ClickhouseConnMaxLifeTime,

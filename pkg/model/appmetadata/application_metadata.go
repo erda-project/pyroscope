@@ -16,10 +16,10 @@ type ApplicationMetadata struct {
 	Units           metadata.Units           `gorm:"column:units" json:"units,omitempty"`
 	AggregationType metadata.AggregationType `gorm:"column:aggregation_type" json:"-"`
 	SampleType      string                   `gorm:"column:sample_type" json:"sampleType,omitempty"`
-	Deleted         string                   `gorm:"column:is_deleted"`
-	CreatedAt       time.Time                `gorm:"column:created_at"`
-	UpdatedAt       time.Time                `gorm:"column:updated_at"`
-	DeletedAt       uint64                   `gorm:"column:deleted_at"`
+	IsDeleted       bool                     `gorm:"column:is_deleted" json:"isDeleted,omitempty"`
+	CreatedAt       time.Time                `gorm:"column:created_at" json:"createdAt"`
+	UpdatedAt       time.Time                `gorm:"column:updated_at" json:"updatedAt"`
+	DeletedAt       uint64                   `gorm:"column:deleted_at" json:"deletedAt,omitempty"`
 	OrgID           string                   `gorm:"column:org_id" json:"orgID,omitempty"`
 	OrgName         string                   `gorm:"column:org_name" json:"orgName,omitempty"`
 	ProjectID       string                   `gorm:"column:project_id" json:"projectID,omitempty"`

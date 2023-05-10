@@ -12,7 +12,7 @@ import (
 	"github.com/pyroscope-io/pyroscope/pkg/storage/segment"
 )
 
-const defaultBatchSize = 1 << 10 // 1K items
+const defaultBatchSize = 512000 // 1K items
 
 func (s *Storage) enforceRetentionPolicy(ctx context.Context, rp *segment.RetentionPolicy) {
 	observer := prometheus.ObserverFunc(s.metrics.retentionTaskDuration.Observe)
@@ -71,6 +71,7 @@ func (s *Storage) deleteSegmentData(ctx context.Context, k *segment.Key, rp *seg
 	if err != nil {
 		return err
 	}
+
 	if deleted {
 		return s.deleteSegmentAndRelatedData(k)
 	}

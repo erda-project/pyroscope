@@ -97,10 +97,10 @@ func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health
 			badgerGCTaskInterval: 5 * time.Minute,
 			// DB size and cache size metrics are updated periodically.
 			metricsUpdateTaskInterval: 10 * time.Second,
-			writeBackTaskInterval:     time.Minute,
+			writeBackTaskInterval:     10 * time.Second,
 			evictionTaskInterval:      20 * time.Second,
 			retentionTaskInterval:     10 * time.Minute,
-			cacheTTL:                  2 * time.Second,
+			cacheTTL:                  1 * time.Second,
 			// gcSizeDiff specifies the minimal storage size difference that
 			// causes garbage collection to trigger.
 			gcSizeDiff: bytesize.GB,
@@ -145,16 +145,15 @@ func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health
 		return nil, err
 	}
 
-	s.periodicTask(s.writeBackTaskInterval, s.writeBackTask)
+	//s.periodicTask(s.writeBackTaskInterval, s.writeBackTask)
+	memTotal, err := getMemTotal()
+	if err != nil {
+		return nil, err
+	}
+	s.periodicTask(s.evictionTaskInterval, s.evictionTask(memTotal))
 
 	if !s.config.inMemory {
-		// TODO(kolesnikovae): Allow failure and skip evictionTask?
-		memTotal, err := getMemTotal()
-		if err != nil {
-			return nil, err
-		}
-
-		s.periodicTask(s.evictionTaskInterval, s.evictionTask(memTotal))
+		s.periodicTask(s.writeBackTaskInterval, s.writeBackTask)
 		s.maintenanceTask(s.retentionTaskInterval, s.retentionTask)
 		s.periodicTask(s.metricsUpdateTaskInterval, s.updateMetricsTask)
 	}
@@ -281,16 +280,17 @@ func (s *Storage) periodicTask(interval time.Duration, f func()) {
 }
 
 func (s *Storage) evictionTask(memTotal uint64) func() {
-	var m runtime.MemStats
+	//var m runtime.MemStats
 	return func() {
 		timer := prometheus.NewTimer(prometheus.ObserverFunc(s.metrics.evictionTaskDuration.Observe))
 		defer timer.ObserveDuration()
-		runtime.ReadMemStats(&m)
-		used := float64(m.Alloc) / float64(memTotal)
-		percent := s.config.cacheEvictVolume
-		if used < s.config.cacheEvictThreshold {
-			return
-		}
+		//runtime.ReadMemStats(&m)
+		//used := float64(m.Alloc) / float64(memTotal)
+		//percent := s.config.cacheEvictVolume
+		s.segments.Evict(1)
+		//if used < s.config.cacheEvictThreshold {
+		//	return
+		//}
 		// Dimensions, dictionaries, and segments should not be evicted,
 		// as they are almost 100% in use and will be loaded back, causing
 		// more allocations. Unused items should be unloaded from cache by
@@ -300,10 +300,10 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		// It should be noted that in case of a crash or kill, data may become
 		// inconsistent: we should unite databases and do this in a tx.
 		// This is also applied to writeBack task.
-		s.trees.Evict(percent)
+		s.trees.Evict(1)
 		s.dicts.WriteBack()
-		// s.dimensions.WriteBack()
-		// s.segments.WriteBack()
+		//s.dimensions.WriteBack()
+		//s.segments.WriteBack()
 		// GC does not really release OS memory, so relying on MemStats.Alloc
 		// causes cache to evict the vast majority of items. debug.FreeOSMemory()
 		// could be used instead, but this can be even more expensive.

@@ -64,21 +64,22 @@ func (ll *Labels) Put(key, val string) {
 }
 
 type TableRow struct {
-	K string `db:"k"`
-	V string `db:"v"`
+	K         string    `db:"k" ch:"k"`
+	V         string    `db:"v" ch:"v"`
+	Timestamp time.Time `db:"timestamp" ch:"timestamp"`
 }
 
 //revive:disable-next-line:get-return A callback is fine
 func (ll *Labels) GetKeys(cb func(k string) bool) {
 	err := ll.db.View(func(conn clickhouse.Conn) error {
-		rows, err := conn.Query(context.Background(), "select * from ? where k like '?%'", ll.db.FQDN(), "l:")
+		rows, err := conn.Query(context.Background(), "select k, v, timestamp from "+ll.db.FQDN()+" where k like '?%'", "l:")
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var kv TableRow
-			if err := rows.Scan(&kv); err != nil {
+			if err := rows.ScanStruct(&kv); err != nil {
 				return err
 			}
 			shouldContinue := cb(string(kv.V[2:]))
@@ -98,21 +99,21 @@ func (ll *Labels) GetKeys(cb func(k string) bool) {
 // If the pair can not be found, no error is returned.
 func (ll *Labels) Delete(key, value string) error {
 	return ll.db.Update(func(conn clickhouse.Conn) error {
-		return conn.Exec(context.Background(), "delete from ? where k = ?", ll.db.FQDN(), "v:"+key+":"+value)
+		return conn.Exec(context.Background(), "delete from "+ll.db.FQDN()+" where k = ?", "v:"+key+":"+value)
 	})
 }
 
 //revive:disable-next-line:get-return A callback is fine
 func (ll *Labels) GetValues(key string, cb func(v string) bool) {
 	err := ll.db.View(func(conn clickhouse.Conn) error {
-		rows, err := conn.Query(context.Background(), "select * from ? where k like '?%'", ll.db.FQDN(), "v:"+key+":")
+		rows, err := conn.Query(context.Background(), "select k, v, timestamp from "+ll.db.FQDN()+" where k like ?", "v:"+key+":"+"%")
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var kv TableRow
-			if err := rows.Scan(&kv); err != nil {
+			if err := rows.ScanStruct(&kv); err != nil {
 				return err
 			}
 			k := kv.K
