@@ -288,6 +288,8 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		//used := float64(m.Alloc) / float64(memTotal)
 		//percent := s.config.cacheEvictVolume
 		s.segments.Evict(1)
+		s.dicts.Evict(1)
+		s.dimensions.Evict(1)
 		//if used < s.config.cacheEvictThreshold {
 		//	return
 		//}
@@ -301,7 +303,7 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		// inconsistent: we should unite databases and do this in a tx.
 		// This is also applied to writeBack task.
 		s.trees.Evict(1)
-		s.dicts.WriteBack()
+		//s.dicts.WriteBack()
 		//s.dimensions.WriteBack()
 		//s.segments.WriteBack()
 		// GC does not really release OS memory, so relying on MemStats.Alloc
