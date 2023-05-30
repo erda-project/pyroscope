@@ -115,7 +115,9 @@ func NewClickHouse(c ClickHouseConfig) *Cache {
 	// start a goroutine for saving the evicted cache items to disk
 	go func() {
 		for e := range writeBackChannel {
-			cache.saveToDisk(e.Key, e.Value)
+			if err := cache.saveToDisk(e.Key, e.Value); err != nil {
+				log.Println("error write back to disk:", err)
+			}
 		}
 		close(cache.writeBackDone)
 	}()

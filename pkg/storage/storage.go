@@ -97,10 +97,10 @@ func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health
 			badgerGCTaskInterval: 5 * time.Minute,
 			// DB size and cache size metrics are updated periodically.
 			metricsUpdateTaskInterval: 10 * time.Second,
-			writeBackTaskInterval:     10 * time.Second,
+			writeBackTaskInterval:     20 * time.Second,
 			evictionTaskInterval:      20 * time.Second,
 			retentionTaskInterval:     10 * time.Minute,
-			cacheTTL:                  1 * time.Second,
+			cacheTTL:                  2 * time.Minute,
 			// gcSizeDiff specifies the minimal storage size difference that
 			// causes garbage collection to trigger.
 			gcSizeDiff: bytesize.GB,
@@ -150,13 +150,19 @@ func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health
 	if err != nil {
 		return nil, err
 	}
-	s.periodicTask(s.evictionTaskInterval, s.evictionTask(memTotal))
 
-	if !s.config.inMemory {
+	if s.config.inMemory {
+		s.periodicTask(s.evictionTaskInterval, s.evictionTask(memTotal))
+	} else {
 		s.periodicTask(s.writeBackTaskInterval, s.writeBackTask)
-		s.maintenanceTask(s.retentionTaskInterval, s.retentionTask)
-		s.periodicTask(s.metricsUpdateTaskInterval, s.updateMetricsTask)
 	}
+
+	//if !s.config.inMemory {
+	//	s.periodicTask(s.evictionTaskInterval, s.evictionTask(memTotal))
+	//	//s.periodicTask(s.writeBackTaskInterval, s.writeBackTask)
+	//	//s.maintenanceTask(s.retentionTaskInterval, s.retentionTask)
+	//	s.periodicTask(s.metricsUpdateTaskInterval, s.updateMetricsTask)
+	//}
 
 	return s, nil
 }
