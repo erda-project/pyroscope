@@ -105,9 +105,10 @@ func NewClickHouse(c ClickHouseConfig) *Cache {
 			//  We should definitely take advantage of BadgerDB write batch API.
 			//  Also, WriteBack and Evict could be combined. We also could
 			//  consider moving caching to storage/db.
-			if err := cache.saveToDisk(e.Key, e.Value); err != nil {
-				log.Println("error saving to disk:", err)
-			}
+			//if err := cache.saveToDisk(e.Key, e.Value); err != nil {
+			//	log.Println("error saving to disk:", err)
+			//}
+			log.Println("evicting", e.Key)
 		}
 		close(cache.evictionsDone)
 	}()
