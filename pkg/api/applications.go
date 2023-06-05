@@ -28,7 +28,8 @@ func NewApplicationsHandler(svc ApplicationListerAndDeleter, httpUtils httputils
 }
 
 func (h *ApplicationsHandler) GetApps(w http.ResponseWriter, r *http.Request) {
-	apps, err := h.svc.List(r.Context())
+	ctx := context.WithValue(r.Context(), "query", r.URL.Query())
+	apps, err := h.svc.List(ctx)
 	if err != nil {
 		h.httpUtils.HandleError(r, w, err)
 		return

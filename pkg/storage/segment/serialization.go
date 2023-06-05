@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"log"
 	"time"
 
 	"github.com/pyroscope-io/pyroscope/pkg/storage/metadata"
@@ -120,6 +121,7 @@ func Deserialize(r io.Reader) (*Segment, error) {
 			return nil, err
 		}
 		if int(depth) >= len(durations) {
+			log.Println("depth is too high")
 			return nil, errMaxDepth
 		}
 		timeVal, err := varint.Read(br)

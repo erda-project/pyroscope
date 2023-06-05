@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,7 @@ type PutInput struct {
 	SampleRate      uint32
 	Units           metadata.Units
 	AggregationType metadata.AggregationType
+	SampleType      string
 }
 
 func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
@@ -38,12 +40,23 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 		return err
 	}
 
+	appList := strings.Split(pi.Key.AppName(), ".")
 	if err := s.appSvc.CreateOrUpdate(ctx, appmetadata.ApplicationMetadata{
 		FQName:          pi.Key.AppName(),
 		SpyName:         pi.SpyName,
 		SampleRate:      pi.SampleRate,
 		Units:           pi.Units,
 		AggregationType: pi.AggregationType,
+		SampleType:      appList[len(appList)-1],
+		OrgID:           pi.Key.Labels()["DICE_ORG_ID"],
+		OrgName:         pi.Key.Labels()["DICE_ORG_NAME"],
+		Workspace:       pi.Key.Labels()["DICE_WORKSPACE"],
+		ProjectID:       pi.Key.Labels()["DICE_PROJECT_ID"],
+		ProjectName:     pi.Key.Labels()["DICE_PROJECT_NAME"],
+		AppID:           pi.Key.Labels()["DICE_APPLICATION_ID"],
+		AppName:         pi.Key.Labels()["DICE_APPLICATION_NAME"],
+		ClusterName:     pi.Key.Labels()["DICE_CLUSTER_NAME"],
+		ServiceName:     pi.Key.Labels()["DICE_SERVICE"],
 	}); err != nil {
 		s.logger.Error("error saving metadata", err)
 	}
