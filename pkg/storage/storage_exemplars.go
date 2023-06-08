@@ -306,7 +306,7 @@ func (e *exemplars) fetch(ctx context.Context, appName string, profileIDs []stri
 			k := exemplarKey(appName, profileID)
 			var row TableRow
 			var buf []byte
-			if err := conn.QueryRow(context.Background(), "select v from "+e.db.FQDN()+" where k = ? order by timestamp desc limit 1", string(k)).ScanStruct(&row); err != nil {
+			if err := conn.QueryRow(context.Background(), "select k,v,max(timestamp) as timestamp from "+e.db.FQDN()+"_all where k = ? group by (k,v) limit 1", string(k)).ScanStruct(&row); err != nil {
 				return err
 			}
 			buf = []byte(row.V)
@@ -487,7 +487,7 @@ func (b *exemplarsBatch) writeExemplarToDB(conn clickhouse.Conn, e *exemplarEntr
 
 	var row TableRow
 	var buf []byte
-	if err := conn.QueryRow(context.Background(), "select v from pyroscope.profiles"+" where k = ? order by timestamp desc limit 1", string(e.Key)).ScanStruct(&row); err == nil {
+	if err := conn.QueryRow(context.Background(), "select k,v,max(timestamp) as timestamp from pyroscope.profiles_all"+" where k = ? group by (k,v) limit 1", string(e.Key)).ScanStruct(&row); err == nil {
 		buf = []byte(row.V)
 
 		var x exemplarEntry
@@ -502,7 +502,7 @@ func (b *exemplarsBatch) writeExemplarToDB(conn clickhouse.Conn, e *exemplarEntr
 	if err != nil {
 		return err
 	}
-	if err := conn.Exec(context.Background(), "insert into pyroscope.profiles"+" values (?, ?, ?)", string(e.Key), string(r), time.Now()); err != nil {
+	if err := conn.Exec(context.Background(), "insert into pyroscope.profiles_all"+" values (?, ?, ?)", string(e.Key), string(r), time.Now()); err != nil {
 		return err
 	}
 	b.metrics.exemplarsWriteBytes.Observe(float64(len(r)))
