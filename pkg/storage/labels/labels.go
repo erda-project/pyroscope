@@ -72,7 +72,7 @@ type TableRow struct {
 //revive:disable-next-line:get-return A callback is fine
 func (ll *Labels) GetKeys(cb func(k string) bool) {
 	err := ll.db.View(func(conn clickhouse.Conn) error {
-		rows, err := conn.Query(context.Background(), "select k, v, timestamp from "+ll.db.FQDN()+" where k like '?%'", "l:")
+		rows, err := conn.Query(context.Background(), "select k, v, max(timestamp) as timestamp from "+ll.db.FQDN()+"_all where k like '?%' group by (k,v)", "l:")
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (ll *Labels) Delete(key, value string) error {
 //revive:disable-next-line:get-return A callback is fine
 func (ll *Labels) GetValues(key string, cb func(v string) bool) {
 	err := ll.db.View(func(conn clickhouse.Conn) error {
-		rows, err := conn.Query(context.Background(), "select k, v, timestamp from "+ll.db.FQDN()+" where k like ?", "v:"+key+":"+"%")
+		rows, err := conn.Query(context.Background(), "select k, v, max(timestamp) as timestamp from "+ll.db.FQDN()+"_all where k like ? group by (k,v)", "v:"+key+":"+"%")
 		if err != nil {
 			return err
 		}

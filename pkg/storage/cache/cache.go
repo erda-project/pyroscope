@@ -221,8 +221,9 @@ func (cache *Cache) Lookup(key string) (interface{}, bool) {
 }
 
 type TableRow struct {
-	K string `db:"k" ch:"k"`
-	V string `db:"v" ch:"v"`
+	K         string    `db:"k" ch:"k"`
+	V         string    `db:"v" ch:"v"`
+	Timestamp time.Time `db:"timestamp" ch:"timestamp"`
 }
 
 func (cache *Cache) iterate(key string, createNotFound bool) (interface{}, error) {
@@ -232,7 +233,7 @@ func (cache *Cache) iterate(key string, createNotFound bool) (interface{}, error
 		var rows driver.Rows
 		var err error
 		err = cache.ch.View(func(conn clickhouse.Conn) error {
-			rows, err = conn.Query(context.Background(), "select v from "+cache.ch.FQDN()+" where k = ? order by timestamp desc limit 1", cache.prefix+key)
+			rows, err = conn.Query(context.Background(), "select k, v, max(timestamp) as timestamp from "+cache.ch.FQDN()+"_all where k = ? group by (k,v) limit 1", cache.prefix+key)
 			return err
 		})
 		if err != nil {
@@ -263,7 +264,7 @@ func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
 		var row TableRow
 		var buf []byte
 		err := cache.ch.View(func(conn clickhouse.Conn) error {
-			if err := conn.QueryRow(context.Background(), "select v from "+cache.ch.FQDN()+" where k = ? order by timestamp desc limit 1", cache.prefix+key).ScanStruct(&row); err != nil {
+			if err := conn.QueryRow(context.Background(), "select k, v, max(timestamp) as timestamp from "+cache.ch.FQDN()+"_all where k = ? group by (k,v) limit 1", cache.prefix+key).ScanStruct(&row); err != nil {
 				return err
 			}
 			buf = []byte(row.V)
