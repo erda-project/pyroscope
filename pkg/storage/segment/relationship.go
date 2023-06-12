@@ -36,6 +36,8 @@ func relationship(t1, t2, st, et time.Time) rel {
 	if t1.Equal(st) && t2.Equal(et) {
 		return match
 	}
+	t1 = t1.Add(-10 * time.Minute)
+	t2 = t2.Add(10 * time.Minute)
 	if !t1.After(st) && !t2.Before(et) {
 		return inside
 	}
