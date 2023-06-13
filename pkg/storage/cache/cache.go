@@ -127,6 +127,7 @@ func NewClickHouse(c ClickHouseConfig) *Cache {
 }
 
 func (cache *Cache) Put(key string, val interface{}) {
+	cache.saveToDisk(key, val)
 	cache.lfu.Set(key, val)
 }
 

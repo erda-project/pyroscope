@@ -94,7 +94,7 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 		s.dimensions.Put(key, r)
 	}
 
-	skWithTime := fmt.Sprintf("%s:%d", sk, pi.StartTime.Unix())
+	skWithTime := fmt.Sprintf("%s:%d", sk, pi.EndTime.Unix())
 	r, err := s.segments.GetOrCreate(skWithTime)
 	if err != nil {
 		return fmt.Errorf("segments cache for %v: %v", skWithTime, err)

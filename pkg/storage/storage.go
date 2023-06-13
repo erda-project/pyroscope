@@ -293,9 +293,9 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		//runtime.ReadMemStats(&m)
 		//used := float64(m.Alloc) / float64(memTotal)
 		//percent := s.config.cacheEvictVolume
-		s.segments.Evict(1)
+		//s.segments.Evict(1)
 		s.dicts.Evict(1)
-		//s.dimensions.Evict(1)
+		s.dimensions.Evict(1)
 		//if used < s.config.cacheEvictThreshold {
 		//	return
 		//}
@@ -308,7 +308,7 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		// It should be noted that in case of a crash or kill, data may become
 		// inconsistent: we should unite databases and do this in a tx.
 		// This is also applied to writeBack task.
-		s.trees.Evict(1)
+		//s.trees.Evict(1)
 		//s.dicts.WriteBack()
 		//s.dimensions.WriteBack()
 		//s.segments.WriteBack()
