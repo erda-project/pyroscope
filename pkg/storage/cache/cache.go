@@ -220,6 +220,32 @@ func (cache *Cache) Lookup(key string) (interface{}, bool) {
 	return v, v != nil && err == nil
 }
 
+func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time) ([]interface{}, error) {
+	var rows driver.Rows
+	var err error
+	err = cache.ch.View(func(conn clickhouse.Conn) error {
+		rows, err = conn.Query(context.Background(), "select k, v, max(timestamp) as timestamp from "+cache.ch.FQDN()+"_all where k = '?%' and timestamp >= ? and timestamp <= ?", cache.prefix+key, st, et)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]interface{}, 0)
+	for rows.Next() {
+		var row TableRow
+		if err := rows.ScanStruct(&row); err != nil {
+			return nil, err
+		}
+		var val interface{}
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), key)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, val)
+	}
+	return res, nil
+}
+
 type TableRow struct {
 	K         string    `db:"k" ch:"k"`
 	V         string    `db:"v" ch:"v"`

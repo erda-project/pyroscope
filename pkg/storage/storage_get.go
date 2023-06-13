@@ -102,39 +102,42 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			continue
 		}
 		key := parsedKey.SegmentKey()
-		res, ok := s.segments.Lookup(key)
-		if !ok {
-			continue
+		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime)
+		if err != nil {
+			return nil, err
 		}
-
-		st := res.(*segment.Segment)
-		timelineKey := "*"
-		if v, ok := parsedKey.Labels()[gi.GroupBy]; ok {
-			timelineKey = v
-		}
-		if _, ok := timelines[timelineKey]; !ok {
-			timelines[timelineKey] = segment.GenerateTimeline(gi.StartTime, gi.EndTime)
-		}
-
-		timeline.PopulateTimeline(st)
-		timelines[timelineKey].PopulateTimeline(st)
-		lastSegment = st
-
-		trace.Logf(ctx, traceCatGetCallback, "segment_key=%s", key)
-		st.GetContext(ctx, gi.StartTime, gi.EndTime, func(depth int, samples, writes uint64, t time.Time, r *big.Rat) {
-			tk := parsedKey.TreeKey(depth, t)
-			res, ok = s.trees.Lookup(tk)
-			trace.Logf(ctx, traceCatGetCallback, "tree_found=%v time=%d r=%v", ok, t.Unix(), r)
-			if ok {
-				x := res.(*tree.Tree).Clone(r)
-				writesTotal += writes
-				if resultTrie == nil {
-					resultTrie = x
-					return
-				}
-				resultTrie.Merge(x)
+		for _, segVal := range allSegments {
+			st := segVal.(*segment.Segment)
+			timelineKey := "*"
+			if v, ok := parsedKey.Labels()[gi.GroupBy]; ok {
+				timelineKey = v
 			}
-		})
+			if _, ok := timelines[timelineKey]; !ok {
+				timelines[timelineKey] = segment.GenerateTimeline(gi.StartTime, gi.EndTime)
+			}
+
+			timeline.PopulateTimeline(st)
+			timelines[timelineKey].PopulateTimeline(st)
+			lastSegment = st
+
+			trace.Logf(ctx, traceCatGetCallback, "segment_key=%s", key)
+			st.GetContext(ctx, gi.StartTime, gi.EndTime, func(depth int, samples, writes uint64, t time.Time, r *big.Rat) {
+				tk := parsedKey.TreeKey(depth, t)
+				var res interface{}
+				var ok bool
+				res, ok = s.trees.Lookup(tk)
+				trace.Logf(ctx, traceCatGetCallback, "tree_found=%v time=%d r=%v", ok, t.Unix(), r)
+				if ok {
+					x := res.(*tree.Tree).Clone(r)
+					writesTotal += writes
+					if resultTrie == nil {
+						resultTrie = x
+						return
+					}
+					resultTrie.Merge(x)
+				}
+			})
+		}
 	}
 
 	if resultTrie == nil || lastSegment == nil {
