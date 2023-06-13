@@ -224,7 +224,7 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time) ([]interfa
 	var rows driver.Rows
 	var err error
 	err = cache.ch.View(func(conn clickhouse.Conn) error {
-		rows, err = conn.Query(context.Background(), "select k, v, max(timestamp) as timestamp from "+cache.ch.FQDN()+"_all where k = '?%' and timestamp >= ? and timestamp <= ?", cache.prefix+key, st, et)
+		rows, err = conn.Query(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k like ? and timestamp >= ? and timestamp <= ?", cache.prefix+key+"%", st, et)
 		return err
 	})
 	if err != nil {

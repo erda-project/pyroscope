@@ -65,7 +65,15 @@ func (svc ApplicationMetadataService) CreateOrUpdate(ctx context.Context, applic
 
 	// Only update the field if it's populated
 	return tx.Where(appmetadata.ApplicationMetadata{
-		FQName: application.FQName,
+		FQName:      application.FQName,
+		ProjectID:   application.ProjectID,
+		ProjectName: application.ProjectName,
+		OrgID:       application.OrgID,
+		OrgName:     application.OrgName,
+		Workspace:   application.Workspace,
+		AppID:       application.AppID,
+		SpyName:     application.SpyName,
+		ServiceName: application.ServiceName,
 	}).Assign(application).FirstOrCreate(&appmetadata.ApplicationMetadata{}).Error
 }
 
