@@ -14,7 +14,7 @@ func (NoopApplicationMetadataService) CreateOrUpdate(context.Context, appmetadat
 	return nil
 }
 
-func (NoopApplicationMetadataService) List(context.Context, appmetadata.ApplicationMetadata) (apps []appmetadata.ApplicationMetadata, err error) {
+func (NoopApplicationMetadataService) List(context.Context) (apps []appmetadata.ApplicationMetadata, err error) {
 	return apps, err
 }
 

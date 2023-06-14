@@ -53,6 +53,10 @@ func (svc *ApplicationMetadataCacheService) CreateOrUpdate(ctx context.Context, 
 	return svc.writeToBoth(ctx, application)
 }
 
+func (svc *ApplicationMetadataCacheService) List(ctx context.Context) (apps []appmetadata.ApplicationMetadata, err error) {
+	return nil, nil
+}
+
 // writeToBoth writes to both the cache and the underlying service
 func (svc *ApplicationMetadataCacheService) writeToBoth(ctx context.Context, application appmetadata.ApplicationMetadata) error {
 	if err := svc.appSvc.CreateOrUpdate(ctx, application); err != nil {

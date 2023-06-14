@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/url"
 	"runtime/trace"
 	"time"
 
@@ -64,7 +65,9 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 		dimensionKeys = s.dimensionKeysByKey(gi.Key)
 	case gi.Query != nil:
 		logger = logger.WithField("query", gi.Query)
-		dimensionKeys = s.dimensionKeysByQuery(ctx, gi.Query)
+		// TODO support queries with labels
+		//dimensionKeys = s.dimensionKeysByQuery(ctx, gi.Query)
+		dimensionKeys = s.dimensionKeysByQueryApp(ctx, gi.Query)
 	default:
 		// Should never happen.
 		return nil, fmt.Errorf("key or query must be specified")
@@ -252,6 +255,35 @@ func (s *Storage) execQuery(_ context.Context, qry *flameql.Query) []dimension.K
 
 func (s *Storage) dimensionKeysByQuery(ctx context.Context, qry *flameql.Query) func() []dimension.Key {
 	return func() []dimension.Key { return s.execQuery(ctx, qry) }
+}
+
+func (s *Storage) dimensionKeysByQueryApp(ctx context.Context, qry *flameql.Query) func() []dimension.Key {
+	return func() []dimension.Key {
+		query := url.Values{}
+		query.Set("name", qry.AppName)
+		for _, m := range qry.Matchers {
+			switch m.Key {
+			case "DICE_WORKSPACE":
+				query.Set("workspace", m.Value)
+			case "DICE_PROJECT_ID":
+				query.Set("projectID", m.Value)
+			case "POD_IP":
+				query.Set("podIP", m.Value)
+			default:
+			}
+		}
+		ctx = context.WithValue(ctx, "query", query)
+		apps, err := s.appSvc.List(ctx)
+		if err != nil {
+			return nil
+		}
+		var keys []dimension.Key
+		for _, app := range apps {
+			segmentKey := app.ToSegmentKey()
+			keys = append(keys, []byte(segmentKey.Normalized()))
+		}
+		return keys
+	}
 }
 
 func (s *Storage) dimensionKeysByKey(key *segment.Key) func() []dimension.Key {

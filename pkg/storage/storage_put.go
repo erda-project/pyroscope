@@ -10,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/pyroscope-io/pyroscope/pkg/model/appmetadata"
-	"github.com/pyroscope-io/pyroscope/pkg/storage/dimension"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/metadata"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/segment"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/tree"
@@ -57,6 +56,7 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 		AppName:         pi.Key.Labels()["DICE_APPLICATION_NAME"],
 		ClusterName:     pi.Key.Labels()["DICE_CLUSTER_NAME"],
 		ServiceName:     pi.Key.Labels()["DICE_SERVICE"],
+		PodIP:           pi.Key.Labels()["POD_IP"],
 	}); err != nil {
 		s.logger.Error("error saving metadata", err)
 	}
@@ -83,16 +83,16 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 	}
 
 	sk := pi.Key.SegmentKey()
-	for k, v := range pi.Key.Labels() {
-		key := k + ":" + v
-		r, err := s.dimensions.GetOrCreate(key)
-		if err != nil {
-			s.logger.Errorf("dimensions cache for %v: %v", key, err)
-			continue
-		}
-		r.(*dimension.Dimension).Insert([]byte(sk))
-		s.dimensions.Put(key, r)
-	}
+	//for k, v := range pi.Key.Labels() {
+	//	key := k + ":" + v
+	//	r, err := s.dimensions.GetOrCreate(key)
+	//	if err != nil {
+	//		s.logger.Errorf("dimensions cache for %v: %v", key, err)
+	//		continue
+	//	}
+	//	r.(*dimension.Dimension).Insert([]byte(sk))
+	//	s.dimensions.Put(key, r)
+	//}
 
 	skWithTime := fmt.Sprintf("%s:%d", sk, pi.EndTime.Unix())
 	r, err := s.segments.GetOrCreate(skWithTime)

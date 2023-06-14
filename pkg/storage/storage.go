@@ -86,6 +86,7 @@ type SampleObserver interface {
 // ApplicationMetadataSaver saves application metadata
 type ApplicationMetadataSaver interface {
 	CreateOrUpdate(ctx context.Context, application appmetadata.ApplicationMetadata) error
+	List(ctx context.Context) (apps []appmetadata.ApplicationMetadata, err error)
 }
 
 func New(c *Config, logger *logrus.Logger, reg prometheus.Registerer, hc *health.Controller, appSvc ApplicationMetadataSaver) (*Storage, error) {

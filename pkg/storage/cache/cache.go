@@ -13,6 +13,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/types"
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/bytebufferpool"
 
 	"github.com/pyroscope-io/pyroscope/pkg/storage/cache/lfu"
@@ -127,7 +128,9 @@ func NewClickHouse(c ClickHouseConfig) *Cache {
 }
 
 func (cache *Cache) Put(key string, val interface{}) {
-	cache.saveToDisk(key, val)
+	if err := cache.saveToDisk(key, val); err != nil {
+		logrus.Errorf("error saving to disk, key: %s, err: %v", key, err)
+	}
 	cache.lfu.Set(key, val)
 }
 

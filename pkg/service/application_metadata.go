@@ -34,6 +34,12 @@ func (svc ApplicationMetadataService) List(ctx context.Context) (apps []appmetad
 		if query.Get("appID") != "" {
 			tx = tx.Where("app_id = ?", query.Get("appID"))
 		}
+		if query.Get("podIP") != "" {
+			tx = tx.Where("pod_ip = ?", query.Get("podIP"))
+		}
+		if query.Get("name") != "" {
+			tx = tx.Where("name = ?", query.Get("name"))
+		}
 	}
 	result := tx.Find(&apps)
 	return apps, result.Error
@@ -74,6 +80,7 @@ func (svc ApplicationMetadataService) CreateOrUpdate(ctx context.Context, applic
 		AppID:       application.AppID,
 		SpyName:     application.SpyName,
 		ServiceName: application.ServiceName,
+		PodIP:       application.PodIP,
 	}).Assign(application).FirstOrCreate(&appmetadata.ApplicationMetadata{}).Error
 }
 
