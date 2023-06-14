@@ -86,13 +86,14 @@ func (c *Cache) Set(key string, value interface{}) {
 	if e, ok := c.values[key]; ok {
 		// value already exists for key.  overwrite
 		e.value = value
-		e.persisted = false
+		e.persisted = true
 		c.increment(e)
 	} else {
 		// value doesn't exist.  insert
 		e = new(cacheEntry)
 		e.key = key
 		e.value = value
+		e.persisted = true
 		c.values[key] = e
 		c.increment(e)
 		c.len++
@@ -182,7 +183,6 @@ func (c *Cache) evict(count int) int {
 
 //revive:disable-next-line:confusing-naming methods are different
 func (c *Cache) writeBack() (persisted, evicted int) {
-	now := time.Now().Unix()
 	for k, entry := range c.values {
 		if c.WriteBackChannel != nil && !entry.persisted {
 			c.WriteBackChannel <- Eviction{
@@ -192,12 +192,18 @@ func (c *Cache) writeBack() (persisted, evicted int) {
 			entry.persisted = true
 			persisted++
 		}
-		if c.TTL > 0 && now-entry.lastAccessTime > c.TTL {
-			c.delete(entry)
-			evicted++
-		}
+		c.delete(entry)
 	}
 	return persisted, evicted
+}
+
+func (c *Cache) WriteBackSingle(key string, value interface{}) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.WriteBackChannel <- Eviction{
+		Key:   key,
+		Value: value,
+	}
 }
 
 func (c *Cache) increment(e *cacheEntry) {

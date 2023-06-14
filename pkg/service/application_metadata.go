@@ -34,6 +34,12 @@ func (svc ApplicationMetadataService) List(ctx context.Context) (apps []appmetad
 		if query.Get("appID") != "" {
 			tx = tx.Where("app_id = ?", query.Get("appID"))
 		}
+		if query.Get("podIP") != "" {
+			tx = tx.Where("pod_ip = ?", query.Get("podIP"))
+		}
+		if query.Get("name") != "" {
+			tx = tx.Where("name = ?", query.Get("name"))
+		}
 	}
 	result := tx.Find(&apps)
 	return apps, result.Error
@@ -65,7 +71,16 @@ func (svc ApplicationMetadataService) CreateOrUpdate(ctx context.Context, applic
 
 	// Only update the field if it's populated
 	return tx.Where(appmetadata.ApplicationMetadata{
-		FQName: application.FQName,
+		FQName:      application.FQName,
+		ProjectID:   application.ProjectID,
+		ProjectName: application.ProjectName,
+		OrgID:       application.OrgID,
+		OrgName:     application.OrgName,
+		Workspace:   application.Workspace,
+		AppID:       application.AppID,
+		SpyName:     application.SpyName,
+		ServiceName: application.ServiceName,
+		PodIP:       application.PodIP,
 	}).Assign(application).FirstOrCreate(&appmetadata.ApplicationMetadata{}).Error
 }
 

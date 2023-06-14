@@ -13,6 +13,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/pyroscope-io/pyroscope/pkg/storage/types"
+	"github.com/sirupsen/logrus"
 	"github.com/valyala/bytebufferpool"
 
 	"github.com/pyroscope-io/pyroscope/pkg/storage/cache/lfu"
@@ -127,6 +128,9 @@ func NewClickHouse(c ClickHouseConfig) *Cache {
 }
 
 func (cache *Cache) Put(key string, val interface{}) {
+	if err := cache.saveToDisk(key, val); err != nil {
+		logrus.Errorf("error saving to disk, key: %s, err: %v", key, err)
+	}
 	cache.lfu.Set(key, val)
 }
 
@@ -218,6 +222,32 @@ func (cache *Cache) GetOrCreate(key string) (interface{}, error) {
 func (cache *Cache) Lookup(key string) (interface{}, bool) {
 	v, err := cache.get(key, false)
 	return v, v != nil && err == nil
+}
+
+func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time) ([]interface{}, error) {
+	var rows driver.Rows
+	var err error
+	err = cache.ch.View(func(conn clickhouse.Conn) error {
+		rows, err = conn.Query(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k like ? and timestamp >= ? and timestamp <= ?", cache.prefix+key+"%", st, et)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := make([]interface{}, 0)
+	for rows.Next() {
+		var row TableRow
+		if err := rows.ScanStruct(&row); err != nil {
+			return nil, err
+		}
+		var val interface{}
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), key)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, val)
+	}
+	return res, nil
 }
 
 type TableRow struct {
