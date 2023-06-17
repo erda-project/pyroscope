@@ -95,6 +95,7 @@ type CacheLayer interface {
 	GetOrCreate(key string) (interface{}, error)
 	Lookup(key string) (interface{}, bool)
 	LookupWithTimeLimit(key string, st, et time.Time) ([]interface{}, error)
+	New(key string) interface{}
 }
 
 //type BadgerDBWithCache interface {
