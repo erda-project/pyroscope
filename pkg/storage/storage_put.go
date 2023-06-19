@@ -78,9 +78,10 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 		"aggregationType": pi.AggregationType,
 	}).Debug("storage.Put")
 
-	if err := s.labels.PutLabels(pi.Key.Labels()); err != nil {
-		return fmt.Errorf("unable to write labels: %w", err)
-	}
+	// Suspend writing labels, because the currently written labels are known
+	//if err := s.labels.PutLabels(pi.Key.Labels()); err != nil {
+	//	return fmt.Errorf("unable to write labels: %w", err)
+	//}
 
 	sk := pi.Key.SegmentKey()
 	//for k, v := range pi.Key.Labels() {
