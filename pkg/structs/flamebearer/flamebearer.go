@@ -139,6 +139,113 @@ type ProfileConfig struct {
 	Telemetry map[string]interface{}
 }
 
+type ProfileCells []*SingleCell
+
+func (p ProfileCells) Len() int {
+	return len(p)
+}
+
+func (p ProfileCells) Less(i, j int) bool {
+	return p[i].Total > p[j].Total
+}
+
+func (p ProfileCells) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+type SingleCell struct {
+	Name        string `json:"name"`
+	Self        int    `json:"self"`
+	Total       int    `json:"total"`
+	FormatSelf  string `json:"formatSelf"`
+	FormatTotal string `json:"formatTotal"`
+}
+
+func GenerateCellTable(flamebearer FlamebearerV1, sampleRate int, unit string) ProfileCells {
+	var table ProfileCells
+	if flamebearer.Levels == nil {
+		return table
+	}
+
+	ff := &singleFormatFunc{}
+	hash := make(map[string]*SingleCell)
+	for _, level := range flamebearer.Levels {
+		for j := 0; j < len(level); j += ff.jStep() {
+			key := ff.getBarName(level, j)
+			name := flamebearer.Names[key]
+
+			cell, ok := hash[name]
+			if !ok {
+				cell = &SingleCell{
+					Name:  name,
+					Self:  0,
+					Total: 0,
+				}
+				hash[name] = cell
+			}
+
+			generateCellSingle(ff, cell, level, j, flamebearer.NumTicks, sampleRate, unit)
+		}
+	}
+
+	for _, v := range hash {
+		table = append(table, v)
+	}
+
+	sort.Sort(table)
+	return table
+}
+
+type singleFormatFunc struct{}
+
+func (ff *singleFormatFunc) getBarOffset(level []int, j int) int {
+	return level[j]
+}
+
+func (ff *singleFormatFunc) getBarTotal(level []int, j int) int {
+	return level[j+1]
+}
+
+func (ff *singleFormatFunc) getBarTotalDiff(level []int, j int) int {
+	return 0
+}
+
+func (ff *singleFormatFunc) getBarSelf(level []int, j int) int {
+	return level[j+2]
+}
+
+func (ff *singleFormatFunc) getBarSelfDiff(level []int, j int) int {
+	return 0
+}
+
+func (ff *singleFormatFunc) getBarName(level []int, j int) int {
+	return level[j+3]
+}
+
+func (ff *singleFormatFunc) jName() int {
+	return 3
+}
+
+func (ff *singleFormatFunc) jStep() int {
+	return 4
+}
+func generateCellSingle(ff *singleFormatFunc, cell *SingleCell, level []int, j int, max, sampleRate int, unit string) *SingleCell {
+	c := cell
+
+	c.Self = zero(c.Self) + ff.getBarSelf(level, j)
+	c.Total = zero(c.Total) + ff.getBarTotal(level, j)
+	c.FormatSelf = FormatValue(max, sampleRate, unit, c.Self)
+	c.FormatTotal = FormatValue(max, sampleRate, unit, c.Total)
+	return c
+}
+
+func zero(i int) int {
+	if i < 0 {
+		return 0
+	}
+	return i
+}
+
 func NewProfile(in ProfileConfig) FlamebearerProfile {
 	fb := in.Tree.FlamebearerStruct(in.MaxNodes)
 	return FlamebearerProfile{
