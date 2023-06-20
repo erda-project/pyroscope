@@ -287,6 +287,10 @@ func (cache *Cache) iterate(key string, createNotFound bool) (interface{}, error
 	})
 }
 
+func (cache *Cache) New(key string) interface{} {
+	return cache.codec.New(key)
+}
+
 func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
 	cache.metrics.ReadsCounter.Inc()
 	return cache.lfu.GetOrSet(key, func() (interface{}, error) {

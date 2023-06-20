@@ -78,9 +78,10 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 		"aggregationType": pi.AggregationType,
 	}).Debug("storage.Put")
 
-	if err := s.labels.PutLabels(pi.Key.Labels()); err != nil {
-		return fmt.Errorf("unable to write labels: %w", err)
-	}
+	// Suspend writing labels, because the currently written labels are known
+	//if err := s.labels.PutLabels(pi.Key.Labels()); err != nil {
+	//	return fmt.Errorf("unable to write labels: %w", err)
+	//}
 
 	sk := pi.Key.SegmentKey()
 	//for k, v := range pi.Key.Labels() {
@@ -95,10 +96,7 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 	//}
 
 	skWithTime := fmt.Sprintf("%s:%d", sk, pi.EndTime.Unix())
-	r, err := s.segments.GetOrCreate(skWithTime)
-	if err != nil {
-		return fmt.Errorf("segments cache for %v: %v", skWithTime, err)
-	}
+	r := s.segments.New(skWithTime)
 
 	st := r.(*segment.Segment)
 	st.SetMetadata(metadata.Metadata{
@@ -109,13 +107,9 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 	})
 
 	samples := pi.Val.Samples()
-	err = st.Put(pi.StartTime, pi.EndTime, samples, func(depth int, t time.Time, r *big.Rat, addons []segment.Addon) {
+	err := st.Put(pi.StartTime, pi.EndTime, samples, func(depth int, t time.Time, r *big.Rat, addons []segment.Addon) {
 		tk := pi.Key.TreeKey(depth, t)
-		res, err := s.trees.GetOrCreate(tk)
-		if err != nil {
-			s.logger.Errorf("trees cache for %v: %v", tk, err)
-			return
-		}
+		res := s.trees.New(tk)
 		cachedTree := res.(*tree.Tree)
 		treeClone := pi.Val.Clone(r)
 		for _, addon := range addons {
