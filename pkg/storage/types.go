@@ -94,7 +94,7 @@ type CacheLayer interface {
 	DiscardPrefix(prefix string) error
 	GetOrCreate(key string) (interface{}, error)
 	Lookup(key string) (interface{}, bool)
-	LookupWithTimeLimit(key string, st, et time.Time) ([]interface{}, error)
+	LookupWithTimeLimit(key string, st, et time.Time, limit int) ([]interface{}, error)
 	New(key string) interface{}
 }
 

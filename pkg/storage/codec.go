@@ -16,11 +16,8 @@ func (treeCodec) New(_ string) interface{} { return tree.New() }
 
 func (c treeCodec) Serialize(w io.Writer, k string, v interface{}) error {
 	key := segment.FromTreeToDictKey(k)
-	d, err := c.dicts.GetOrCreate(key)
-	if err != nil {
-		return err
-	}
-	err = v.(*tree.Tree).SerializeTruncate(d.(*dict.Dict), c.config.maxNodesSerialization, w)
+	d := c.dicts.New(key)
+	err := v.(*tree.Tree).SerializeTruncate(d.(*dict.Dict), c.config.maxNodesSerialization, w)
 	if err != nil {
 		return err
 	}
