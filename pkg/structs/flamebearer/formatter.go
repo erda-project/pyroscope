@@ -289,7 +289,7 @@ func NewBytesFormatter(maxBytes int) *BytesFormatter {
 		if maxBytes >= level[0] {
 			bf.Divider *= float64(level[0])
 			maxBytes /= level[0]
-			bf.Suffix = bf.getLevelName(level[1]) + "s"
+			bf.Suffix = bf.getLevelName(level[1])
 		} else {
 			break
 		}
