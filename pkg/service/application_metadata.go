@@ -40,6 +40,9 @@ func (svc ApplicationMetadataService) List(ctx context.Context) (apps []appmetad
 		if query.Get("name") != "" {
 			tx = tx.Where("name = ?", query.Get("name"))
 		}
+		if query.Get("updateTime") != "" {
+			tx = tx.Where("updated_at >= ?", query.Get("updateTime"))
+		}
 	}
 	result := tx.Find(&apps)
 	return apps, result.Error

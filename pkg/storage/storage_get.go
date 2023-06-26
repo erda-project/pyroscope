@@ -23,7 +23,8 @@ type GetInput struct {
 	Key       *segment.Key
 	Query     *flameql.Query
 	// TODO: make this a part of the query
-	GroupBy string
+	GroupBy      string
+	ProfileLimit int
 }
 
 type GetOutput struct {
@@ -67,7 +68,7 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 		logger = logger.WithField("query", gi.Query)
 		// TODO support queries with labels
 		//dimensionKeys = s.dimensionKeysByQuery(ctx, gi.Query)
-		dimensionKeys = s.dimensionKeysByQueryApp(ctx, gi.Query)
+		dimensionKeys = s.dimensionKeysByQueryApp(ctx, gi)
 	default:
 		// Should never happen.
 		return nil, fmt.Errorf("key or query must be specified")
@@ -105,7 +106,15 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			continue
 		}
 		key := parsedKey.SegmentKey()
-		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime)
+		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
+		if err != nil {
+			return nil, err
+		}
+		_, err = s.dicts.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
+		if err != nil {
+			return nil, err
+		}
+		_, err = s.trees.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -257,11 +266,11 @@ func (s *Storage) dimensionKeysByQuery(ctx context.Context, qry *flameql.Query) 
 	return func() []dimension.Key { return s.execQuery(ctx, qry) }
 }
 
-func (s *Storage) dimensionKeysByQueryApp(ctx context.Context, qry *flameql.Query) func() []dimension.Key {
+func (s *Storage) dimensionKeysByQueryApp(ctx context.Context, qry *GetInput) func() []dimension.Key {
 	return func() []dimension.Key {
 		query := url.Values{}
-		query.Set("name", qry.AppName)
-		for _, m := range qry.Matchers {
+		query.Set("name", qry.Query.AppName)
+		for _, m := range qry.Query.Matchers {
 			switch m.Key {
 			case "DICE_WORKSPACE":
 				query.Set("workspace", m.Value)
@@ -271,6 +280,9 @@ func (s *Storage) dimensionKeysByQueryApp(ctx context.Context, qry *flameql.Quer
 				query.Set("podIP", m.Value)
 			default:
 			}
+		}
+		if !qry.StartTime.IsZero() {
+			query.Set("updateTime", qry.StartTime.Format("2006-01-02 15:04:05"))
 		}
 		ctx = context.WithValue(ctx, "query", query)
 		apps, err := s.appSvc.List(ctx)

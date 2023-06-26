@@ -199,7 +199,7 @@ func (k *Key) DictKey() string {
 // Before tags support, segment key form (i.e. app name + tags: foo{key=value})
 // has been used to reference a dictionary (trie).
 func FromTreeToDictKey(k string) string {
-	return k[0:strings.IndexAny(k, "{")]
+	return k
 }
 
 func (k *Key) Normalized() string {

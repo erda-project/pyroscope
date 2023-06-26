@@ -295,7 +295,7 @@ func (s *Storage) evictionTask(memTotal uint64) func() {
 		//used := float64(m.Alloc) / float64(memTotal)
 		//percent := s.config.cacheEvictVolume
 		//s.segments.Evict(1)
-		s.dicts.Evict(1)
+		//s.dicts.Evict(1)
 		s.dimensions.Evict(1)
 		//if used < s.config.cacheEvictThreshold {
 		//	return
