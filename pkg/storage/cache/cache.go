@@ -230,7 +230,7 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int)
 	var err error
 	interval := (et.Unix() - st.Unix()) / int64(limit)
 	err = cache.ch.View(func(conn clickhouse.Conn) error {
-		rows, err = conn.Query(context.Background(), "select min(k) as mink, min(v) as v, toStartOfInterval(timestamp, INTERVAL "+fmt.Sprintf("%d", interval)+" second) as timestamp from "+cache.ch.FQDN()+"_all where k like ? and timestamp >= ? and timestamp <= ? group by timestamp order by timestamp asc", cache.prefix+key+"%", st, et)
+		rows, err = conn.Query(context.Background(), "select first_value(k) as firstk, first_value(v) as v, toStartOfInterval(timestamp, INTERVAL "+fmt.Sprintf("%d", interval)+" second) as timestamp from "+cache.ch.FQDN()+"_all where k like ? and timestamp >= ? and timestamp <= ? group by timestamp order by timestamp asc", cache.prefix+key+"%", st, et)
 		return err
 	})
 	if err != nil {
@@ -243,18 +243,18 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int)
 			return nil, err
 		}
 		var val interface{}
-		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.Mink, cache.prefix))
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.FirstK, cache.prefix))
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, val)
-		cache.lfu.Set(strings.TrimPrefix(row.Mink, cache.prefix), val)
+		cache.lfu.Set(strings.TrimPrefix(row.FirstK, cache.prefix), val)
 	}
 	return res, nil
 }
 
 type TableRow struct {
-	Mink      string    `db:"mink" ch:"mink"`
+	FirstK    string    `db:"firstk" ch:"firstk"`
 	K         string    `db:"k" ch:"k"`
 	V         string    `db:"v" ch:"v"`
 	Timestamp time.Time `db:"timestamp" ch:"timestamp"`
