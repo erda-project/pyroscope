@@ -40,10 +40,8 @@ func NewApplicationMetadataCacheService(config ApplicationMetadataCacheServiceCo
 // * data is different from what's in the cache
 // Otherwise it does nothing
 func (svc *ApplicationMetadataCacheService) CreateOrUpdate(ctx context.Context, application appmetadata.ApplicationMetadata) error {
-	if cachedApp, ok := svc.cache.get(application.FQName); ok {
-		if !svc.isTheSame(application, cachedApp.(appmetadata.ApplicationMetadata)) {
-			return svc.writeToBoth(ctx, application)
-		}
+	key := application.ToSegmentKey().Normalized()
+	if _, ok := svc.cache.get(key); ok {
 		return nil
 	}
 
@@ -62,7 +60,7 @@ func (svc *ApplicationMetadataCacheService) writeToBoth(ctx context.Context, app
 	if err := svc.appSvc.CreateOrUpdate(ctx, application); err != nil {
 		return err
 	}
-	svc.cache.put(application.FQName, application)
+	svc.cache.put(application.ToSegmentKey().Normalized(), application)
 	return nil
 }
 

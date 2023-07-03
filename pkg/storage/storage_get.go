@@ -98,7 +98,17 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 		timelines   = make(map[string]*segment.Timeline)
 	)
 
-	for _, k := range dimensionKeys() {
+	allKeys := dimensionKeys()
+	if len(allKeys) == 0 {
+		return nil, nil
+	}
+	limit := gi.ProfileLimit / len(allKeys)
+	if limit < 1 {
+		// limit must be at least 1
+		limit = 1
+	}
+
+	for _, k := range allKeys {
 		// TODO: refactor, store `Key`s in dimensions
 		parsedKey, err := segment.ParseKey(string(k))
 		if err != nil {
@@ -106,15 +116,15 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			continue
 		}
 		key := parsedKey.SegmentKey()
-		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
+		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
 		if err != nil {
 			return nil, err
 		}
-		_, err = s.dicts.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
+		_, err = s.dicts.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
 		if err != nil {
 			return nil, err
 		}
-		_, err = s.trees.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, gi.ProfileLimit)
+		_, err = s.trees.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
 		if err != nil {
 			return nil, err
 		}
