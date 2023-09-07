@@ -367,7 +367,7 @@ func (s *Segment) GetContext(ctx context.Context, st, et time.Time, cb func(dept
 	s.root.get(ctx, s, st, et, func(sn *streeNode, r *big.Rat) {
 		// TODO: pass m / d from .get() ?
 		v.add(sn, r, true)
-		cb(sn.depth, sn.samples, sn.writes, sn.time, r)
+		cb(0, sn.samples, sn.writes, sn.time, r)
 	})
 	v.print(filepath.Join(os.TempDir(), fmt.Sprintf("0-get-%s-%s.html", st.String(), et.String())))
 }

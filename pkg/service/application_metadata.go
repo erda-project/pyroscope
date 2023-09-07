@@ -44,7 +44,7 @@ func (svc ApplicationMetadataService) List(ctx context.Context) (apps []appmetad
 			tx = tx.Where("updated_at >= ?", query.Get("updateTime"))
 		}
 	}
-	result := tx.Find(&apps)
+	result := tx.Order("updated_at desc").Find(&apps)
 	return apps, result.Error
 }
 
