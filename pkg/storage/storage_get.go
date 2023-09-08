@@ -297,6 +297,7 @@ func (s *Storage) dimensionKeysByQueryApp(ctx context.Context, qry *GetInput) fu
 		ctx = context.WithValue(ctx, "query", query)
 		apps, err := s.appSvc.List(ctx)
 		if err != nil {
+			logrus.Errorf("failed to get application metadata, query: %v, err: %v", query, err)
 			return nil
 		}
 		var keys []dimension.Key
