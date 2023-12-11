@@ -63,6 +63,8 @@ type ClickHouseCodec interface {
 type Codec interface {
 	Serialize(w io.Writer, key string, value interface{}) error
 	Deserialize(r io.Reader, key string) (interface{}, error)
+	DeserializeWithTime(r io.Reader, _ string, _ time.Time) (interface{}, error)
+	SerializeWithTime(w io.Writer, _ string, v interface{}, t time.Time) error
 	// New returns a new instance of the type. The method is
 	// called by GetOrCreate when an item can not be found by
 	// the given key.
@@ -135,6 +137,13 @@ func (cache *Cache) Put(key string, val interface{}) {
 	cache.lfu.Set(key, val)
 }
 
+func (cache *Cache) PutWithTime(key string, val interface{}, t time.Time) {
+	if err := cache.saveToDiskWithTime(key, val, t); err != nil {
+		logrus.Errorf("error saving to disk, key: %s, err: %v", key, err)
+	}
+	cache.lfu.Set(key+fmt.Sprintf(":%d", t.Unix()), val)
+}
+
 func (cache *Cache) saveToDisk(key string, val interface{}) error {
 	b := bytebufferpool.Get()
 	defer bytebufferpool.Put(b)
@@ -144,6 +153,18 @@ func (cache *Cache) saveToDisk(key string, val interface{}) error {
 	cache.metrics.DBWrites.Observe(float64(b.Len()))
 	return cache.ch.Update(func(conn clickhouse.Conn) error {
 		return conn.Exec(context.Background(), "insert into "+cache.ch.FQDN()+" values (?, ?, ?)", cache.prefix+key, b.String(), time.Now())
+	})
+}
+
+func (cache *Cache) saveToDiskWithTime(key string, val interface{}, t time.Time) error {
+	b := bytebufferpool.Get()
+	defer bytebufferpool.Put(b)
+	if err := cache.codec.SerializeWithTime(b, key, val, t); err != nil {
+		return fmt.Errorf("serialization: %w", err)
+	}
+	cache.metrics.DBWrites.Observe(float64(b.Len()))
+	return cache.ch.Update(func(conn clickhouse.Conn) error {
+		return conn.Exec(context.Background(), "insert into "+cache.ch.FQDN()+" values (?, ?, ?)", cache.prefix+key, b.String(), t)
 	})
 }
 
@@ -220,17 +241,26 @@ func (cache *Cache) GetOrCreate(key string) (interface{}, error) {
 	return cache.get(key, true)
 }
 
+func (cache *Cache) GetOrCreateWithTime(key string, t time.Time) (interface{}, error) {
+	return cache.getWithTime(key, t, true)
+}
+
 func (cache *Cache) Lookup(key string) (interface{}, bool) {
 	v, err := cache.get(key, false)
+	return v, v != nil && err == nil
+}
+
+func (cache *Cache) LookupWithTime(key string, t time.Time) (interface{}, bool) {
+	v, err := cache.getWithTime(key, t, false)
 	return v, v != nil && err == nil
 }
 
 func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int) ([]interface{}, error) {
 	var rows driver.Rows
 	var err error
-	interval := (et.Unix() - st.Unix()) / int64(limit)
+	//interval := (et.Unix() - st.Unix()) / int64(limit)
 	err = cache.ch.View(func(conn clickhouse.Conn) error {
-		rows, err = conn.Query(context.Background(), "select first_value(k) as firstk, first_value(v) as v, toStartOfInterval(timestamp, INTERVAL "+fmt.Sprintf("%d", interval)+" second) as timestamp from "+cache.ch.FQDN()+"_all where k like ? and timestamp >= ? and timestamp <= ? group by timestamp order by timestamp asc", cache.prefix+key+"%", st, et)
+		rows, err = conn.Query(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k = ? and timestamp >= ? and timestamp <= ? order by timestamp asc", cache.prefix+key, st, et)
 		return err
 	})
 	if err != nil {
@@ -243,12 +273,12 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int)
 			return nil, err
 		}
 		var val interface{}
-		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.FirstK, cache.prefix))
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.K, cache.prefix)+":"+fmt.Sprintf("%d", row.Timestamp.Unix()))
 		if err != nil {
 			return nil, err
 		}
 		res = append(res, val)
-		cache.lfu.Set(strings.TrimPrefix(row.FirstK, cache.prefix), val)
+		cache.lfu.Set(strings.TrimPrefix(row.K, cache.prefix)+":"+fmt.Sprintf("%d", row.Timestamp.Unix()), val)
 	}
 	return res, nil
 }
@@ -320,6 +350,33 @@ func (cache *Cache) get(key string, createNotFound bool) (interface{}, error) {
 		}
 		cache.metrics.DBReads.Observe(float64(len(buf)))
 		return cache.codec.Deserialize(bytes.NewReader(buf), key)
+	})
+}
+
+func (cache *Cache) getWithTime(key string, t time.Time, createNotFound bool) (interface{}, error) {
+	return cache.lfu.GetOrSet(key+fmt.Sprintf(":%d", t.Unix()), func() (interface{}, error) {
+		cache.metrics.MissesCounter.Inc()
+		var row TableRow
+		var buf []byte
+		err := cache.ch.View(func(conn clickhouse.Conn) error {
+			if err := conn.QueryRow(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k = ? and timestamp= ? limit 1", cache.prefix+key, t).ScanStruct(&row); err != nil {
+				return err
+			}
+			buf = []byte(row.V)
+			return nil
+		})
+		switch {
+		default:
+			return nil, err
+		case err == nil:
+		case err != nil:
+			if createNotFound {
+				return cache.codec.New(key), nil
+			}
+			return nil, nil
+		}
+		cache.metrics.DBReads.Observe(float64(len(buf)))
+		return cache.codec.DeserializeWithTime(bytes.NewReader(buf), key, t)
 	})
 }
 

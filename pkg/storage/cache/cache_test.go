@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/dgraph-io/badger/v2"
 	"github.com/dgraph-io/badger/v2/options"
@@ -31,7 +32,17 @@ func (fakeCodec) Serialize(w io.Writer, _ string, v interface{}) error {
 	return err
 }
 
+func (fakeCodec) SerializeWithTime(w io.Writer, _ string, v interface{}, t time.Time) error {
+	_, err := w.Write([]byte(v.(string)))
+	return err
+}
+
 func (fakeCodec) Deserialize(r io.Reader, _ string) (interface{}, error) {
+	b, err := io.ReadAll(r)
+	return string(b), err
+}
+
+func (fakeCodec) DeserializeWithTime(r io.Reader, _ string, _ time.Time) (interface{}, error) {
 	b, err := io.ReadAll(r)
 	return string(b), err
 }

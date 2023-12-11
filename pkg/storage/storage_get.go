@@ -144,10 +144,10 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 
 			trace.Logf(ctx, traceCatGetCallback, "segment_key=%s", key)
 			st.GetContext(ctx, gi.StartTime, gi.EndTime, func(depth int, samples, writes uint64, t time.Time, r *big.Rat) {
-				tk := parsedKey.TreeKey(depth, t)
+				tk := parsedKey.TreeKey()
 				var res interface{}
 				var ok bool
-				res, ok = s.trees.Lookup(tk)
+				res, ok = s.trees.LookupWithTime(tk, t)
 				trace.Logf(ctx, traceCatGetCallback, "tree_found=%v time=%d r=%v", ok, t.Unix(), r)
 				if ok {
 					x := res.(*tree.Tree).Clone(r)
