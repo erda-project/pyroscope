@@ -6,7 +6,7 @@ import "time"
 // resolution and multiplier values. For now they are constants
 const (
 	multiplier = 10
-	resolution = 10 * time.Second
+	resolution = 100 * time.Second
 )
 
 var durations = []time.Duration{}
