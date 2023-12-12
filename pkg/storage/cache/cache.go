@@ -283,6 +283,42 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int)
 	return res, nil
 }
 
+func (cache *Cache) LookupByKeys(keys []string, st, et time.Time) (map[string][]interface{}, error) {
+	var rows driver.Rows
+	var err error
+	keysWithPrefix := make([]string, 0, len(keys))
+	for _, k := range keys {
+		keysWithPrefix = append(keysWithPrefix, cache.prefix+k)
+	}
+	//interval := (et.Unix() - st.Unix()) / int64(limit)
+	err = cache.ch.View(func(conn clickhouse.Conn) error {
+		rows, err = conn.Query(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k in ? and timestamp >= ? and timestamp <= ? order by timestamp asc", keysWithPrefix, st, et)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string][]interface{}, 0)
+	for rows.Next() {
+		var row TableRow
+		if err := rows.ScanStruct(&row); err != nil {
+			return nil, err
+		}
+		var val interface{}
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.K, cache.prefix)+":"+fmt.Sprintf("%d", row.Timestamp.Unix()))
+		if err != nil {
+			return nil, err
+		}
+		k := strings.TrimPrefix(row.K, cache.prefix)
+		if _, ok := res[k]; !ok {
+			res[k] = make([]interface{}, 0)
+		}
+		res[k] = append(res[k], val)
+		cache.lfu.Set(k+":"+fmt.Sprintf("%d", row.Timestamp.Unix()), val)
+	}
+	return res, nil
+}
+
 type TableRow struct {
 	FirstK    string    `db:"firstk" ch:"firstk"`
 	K         string    `db:"k" ch:"k"`
