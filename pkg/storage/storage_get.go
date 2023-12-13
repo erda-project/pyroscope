@@ -107,7 +107,7 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 		// limit must be at least 1
 		limit = 1
 	}
-
+	segmentKeys := make([]string, 0)
 	for _, k := range allKeys {
 		// TODO: refactor, store `Key`s in dimensions
 		parsedKey, err := segment.ParseKey(string(k))
@@ -115,25 +115,26 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			s.logger.Errorf("parse key: %v: %v", string(k), err)
 			continue
 		}
-		key := parsedKey.SegmentKey()
-		allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
-		if err != nil {
-			return nil, err
-		}
-		_, err = s.dicts.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
-		if err != nil {
-			return nil, err
-		}
-		_, err = s.trees.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
-		if err != nil {
-			return nil, err
-		}
-		for _, segVal := range allSegments {
+		segmentKeys = append(segmentKeys, parsedKey.SegmentKey())
+	}
+
+	allSegments, err := s.segments.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.dicts.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.trees.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	if err != nil {
+		return nil, err
+	}
+
+	for key, segVals := range allSegments {
+		for _, segVal := range segVals {
 			st := segVal.(*segment.Segment)
 			timelineKey := "*"
-			if v, ok := parsedKey.Labels()[gi.GroupBy]; ok {
-				timelineKey = v
-			}
 			if _, ok := timelines[timelineKey]; !ok {
 				timelines[timelineKey] = segment.GenerateTimeline(gi.StartTime, gi.EndTime)
 			}
@@ -142,12 +143,11 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			timelines[timelineKey].PopulateTimeline(st)
 			lastSegment = st
 
-			trace.Logf(ctx, traceCatGetCallback, "segment_key=%s", key)
 			st.GetContext(ctx, gi.StartTime, gi.EndTime, func(depth int, samples, writes uint64, t time.Time, r *big.Rat) {
-				tk := parsedKey.TreeKey(depth, t)
+				tk := key
 				var res interface{}
 				var ok bool
-				res, ok = s.trees.Lookup(tk)
+				res, ok = s.trees.LookupWithTime(tk, t)
 				trace.Logf(ctx, traceCatGetCallback, "tree_found=%v time=%d r=%v", ok, t.Unix(), r)
 				if ok {
 					x := res.(*tree.Tree).Clone(r)
@@ -161,6 +161,60 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 			})
 		}
 	}
+
+	//for _, k := range allKeys {
+	//	// TODO: refactor, store `Key`s in dimensions
+	//	parsedKey, err := segment.ParseKey(string(k))
+	//	if err != nil {
+	//		s.logger.Errorf("parse key: %v: %v", string(k), err)
+	//		continue
+	//	}
+	//	key := parsedKey.SegmentKey()
+	//	allSegments, err := s.segments.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	_, err = s.dicts.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	_, err = s.trees.LookupWithTimeLimit(key, gi.StartTime, gi.EndTime, limit)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	for _, segVal := range allSegments {
+	//		st := segVal.(*segment.Segment)
+	//		timelineKey := "*"
+	//		if v, ok := parsedKey.Labels()[gi.GroupBy]; ok {
+	//			timelineKey = v
+	//		}
+	//		if _, ok := timelines[timelineKey]; !ok {
+	//			timelines[timelineKey] = segment.GenerateTimeline(gi.StartTime, gi.EndTime)
+	//		}
+	//
+	//		timeline.PopulateTimeline(st)
+	//		timelines[timelineKey].PopulateTimeline(st)
+	//		lastSegment = st
+	//
+	//		trace.Logf(ctx, traceCatGetCallback, "segment_key=%s", key)
+	//		st.GetContext(ctx, gi.StartTime, gi.EndTime, func(depth int, samples, writes uint64, t time.Time, r *big.Rat) {
+	//			tk := parsedKey.TreeKey()
+	//			var res interface{}
+	//			var ok bool
+	//			res, ok = s.trees.LookupWithTime(tk, t)
+	//			trace.Logf(ctx, traceCatGetCallback, "tree_found=%v time=%d r=%v", ok, t.Unix(), r)
+	//			if ok {
+	//				x := res.(*tree.Tree).Clone(r)
+	//				writesTotal += writes
+	//				if resultTrie == nil {
+	//					resultTrie = x
+	//					return
+	//				}
+	//				resultTrie.Merge(x)
+	//			}
+	//		})
+	//	}
+	//}
 
 	if resultTrie == nil || lastSegment == nil {
 		return nil, nil

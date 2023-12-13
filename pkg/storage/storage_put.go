@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"strings"
 	"time"
@@ -95,8 +94,9 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 	//	s.dimensions.Put(key, r)
 	//}
 
-	skWithTime := fmt.Sprintf("%s:%d", sk, pi.EndTime.Unix())
-	r := s.segments.New(skWithTime)
+	//skWithTime := fmt.Sprintf("%s:%d", sk, pi.EndTime.Unix())
+	skKey := sk
+	r := s.segments.New(skKey)
 
 	st := r.(*segment.Segment)
 	st.SetMetadata(metadata.Metadata{
@@ -108,27 +108,27 @@ func (s *Storage) Put(ctx context.Context, pi *PutInput) error {
 
 	samples := pi.Val.Samples()
 	err := st.Put(pi.StartTime, pi.EndTime, samples, func(depth int, t time.Time, r *big.Rat, addons []segment.Addon) {
-		tk := pi.Key.TreeKey(depth, t)
+		tk := pi.Key.TreeKey()
 		res := s.trees.New(tk)
 		cachedTree := res.(*tree.Tree)
 		treeClone := pi.Val.Clone(r)
-		for _, addon := range addons {
-			if res, ok := s.trees.Lookup(pi.Key.TreeKey(addon.Depth, addon.T)); ok {
-				ta := res.(*tree.Tree)
-				ta.RLock()
-				treeClone.Merge(ta)
-				ta.RUnlock()
-			}
-		}
+		//for _, addon := range addons {
+		//	if res, ok := s.trees.Lookup(pi.Key.TreeKey()); ok {
+		//		ta := res.(*tree.Tree)
+		//		ta.RLock()
+		//		treeClone.Merge(ta)
+		//		ta.RUnlock()
+		//	}
+		//}
 		cachedTree.Lock()
 		cachedTree.Merge(treeClone)
 		cachedTree.Unlock()
-		s.trees.Put(tk, cachedTree)
+		s.trees.PutWithTime(tk, cachedTree, pi.StartTime)
 	})
 	if err != nil {
 		return err
 	}
 
-	s.segments.Put(skWithTime, st)
+	s.segments.PutWithTime(skKey, st, pi.StartTime)
 	return nil
 }

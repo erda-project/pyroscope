@@ -87,14 +87,18 @@ type LabelValuesGetter interface {
 
 type CacheLayer interface {
 	Put(key string, val interface{})
+	PutWithTime(key string, val interface{}, t time.Time)
 	Evict(percent float64)
 	WriteBack()
 	Delete(key string) error
 	Discard(key string)
 	DiscardPrefix(prefix string) error
 	GetOrCreate(key string) (interface{}, error)
+	GetOrCreateWithTime(key string, t time.Time) (interface{}, error)
 	Lookup(key string) (interface{}, bool)
+	LookupWithTime(key string, t time.Time) (interface{}, bool)
 	LookupWithTimeLimit(key string, st, et time.Time, limit int) ([]interface{}, error)
+	LookupByKeys(keys []string, st, et time.Time) (map[string][]interface{}, error)
 	New(key string) interface{}
 }
 
