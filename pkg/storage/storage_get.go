@@ -118,15 +118,15 @@ func (s *Storage) Get(ctx context.Context, gi *GetInput) (*GetOutput, error) {
 		segmentKeys = append(segmentKeys, parsedKey.SegmentKey())
 	}
 
-	allSegments, err := s.segments.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	allSegments, err := s.segments.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime, gi.ProfileLimit)
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.dicts.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	_, err = s.dicts.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime, gi.ProfileLimit)
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.trees.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime)
+	_, err = s.trees.LookupByKeys(segmentKeys, gi.StartTime, gi.EndTime, gi.ProfileLimit)
 	if err != nil {
 		return nil, err
 	}

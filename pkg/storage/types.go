@@ -98,7 +98,7 @@ type CacheLayer interface {
 	Lookup(key string) (interface{}, bool)
 	LookupWithTime(key string, t time.Time) (interface{}, bool)
 	LookupWithTimeLimit(key string, st, et time.Time, limit int) ([]interface{}, error)
-	LookupByKeys(keys []string, st, et time.Time) (map[string][]interface{}, error)
+	LookupByKeys(keys []string, st, et time.Time, limit int) (map[string][]interface{}, error)
 	New(key string) interface{}
 }
 
