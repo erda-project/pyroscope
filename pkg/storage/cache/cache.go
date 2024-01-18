@@ -283,16 +283,16 @@ func (cache *Cache) LookupWithTimeLimit(key string, st, et time.Time, limit int)
 	return res, nil
 }
 
-func (cache *Cache) LookupByKeys(keys []string, st, et time.Time) (map[string][]interface{}, error) {
+func (cache *Cache) LookupByKeys(keys []string, st, et time.Time, limit int) (map[string][]interface{}, error) {
 	var rows driver.Rows
 	var err error
 	keysWithPrefix := make([]string, 0, len(keys))
 	for _, k := range keys {
 		keysWithPrefix = append(keysWithPrefix, cache.prefix+k)
 	}
-	//interval := (et.Unix() - st.Unix()) / int64(limit)
+	interval := (et.Unix() - st.Unix()) / int64(limit)
 	err = cache.ch.View(func(conn clickhouse.Conn) error {
-		rows, err = conn.Query(context.Background(), "select k, v, timestamp from "+cache.ch.FQDN()+"_all where k in ? and timestamp >= ? and timestamp <= ? order by timestamp asc", keysWithPrefix, st, et)
+		rows, err = conn.Query(context.Background(), "select first_value(k) as firstk, first_value(v) as v, toStartOfInterval(timestamp, INTERVAL "+fmt.Sprintf("%d", interval)+" second) as timestamp from "+cache.ch.FQDN()+"_all where k in ? and timestamp >= ? and timestamp <= ? group by k, timestamp order by timestamp asc", keysWithPrefix, st, et)
 		return err
 	})
 	if err != nil {
@@ -305,11 +305,11 @@ func (cache *Cache) LookupByKeys(keys []string, st, et time.Time) (map[string][]
 			return nil, err
 		}
 		var val interface{}
-		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.K, cache.prefix)+":"+fmt.Sprintf("%d", row.Timestamp.Unix()))
+		val, err = cache.codec.Deserialize(bytes.NewBufferString(row.V), strings.TrimPrefix(row.FirstK, cache.prefix)+":"+fmt.Sprintf("%d", row.Timestamp.Unix()))
 		if err != nil {
 			return nil, err
 		}
-		k := strings.TrimPrefix(row.K, cache.prefix)
+		k := strings.TrimPrefix(row.FirstK, cache.prefix)
 		if _, ok := res[k]; !ok {
 			res[k] = make([]interface{}, 0)
 		}
