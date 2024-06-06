@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/grafana/pyroscope-go"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/pyroscope-io/client/pyroscope"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v2"

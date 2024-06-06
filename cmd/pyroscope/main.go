@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/fatih/color"
-
 	"github.com/pyroscope-io/pyroscope/cmd/pyroscope/command"
 )
 

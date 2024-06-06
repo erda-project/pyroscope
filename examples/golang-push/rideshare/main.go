@@ -10,7 +10,6 @@ import (
 	"rideshare/car"
 	"rideshare/scooter"
 
-	"github.com/pyroscope-io/client/pyroscope"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	otelpyroscope "github.com/pyroscope-io/otel-profiling-go"

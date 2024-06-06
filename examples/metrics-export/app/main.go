@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/pyroscope-io/client/pyroscope"
+	"github.com/grafana/pyroscope-go"
 )
 
 //go:noinline

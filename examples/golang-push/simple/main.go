@@ -5,8 +5,6 @@ import (
 	"log"
 	"os"
 	"runtime/pprof"
-
-	"github.com/pyroscope-io/client/pyroscope"
 )
 
 //go:noinline

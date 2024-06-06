@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/api"
-	"github.com/pyroscope-io/client/pyroscope"
 )
 
 //go:noinline
