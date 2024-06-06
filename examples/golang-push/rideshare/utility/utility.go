@@ -4,8 +4,6 @@ import (
 	"context"
 	"os"
 	"time"
-
-	"github.com/pyroscope-io/client/pyroscope"
 )
 
 const durationConstant = time.Duration(200 * time.Millisecond)

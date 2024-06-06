@@ -7,8 +7,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/pyroscope-io/client/pyroscope"
-	"github.com/pyroscope-io/client/upstream"
+	"github.com/grafana/pyroscope-go"
+	"github.com/grafana/pyroscope-go/upstream"
 
 	"github.com/pyroscope-io/pyroscope/pkg/convert/pprof"
 	"github.com/pyroscope-io/pyroscope/pkg/ingestion"

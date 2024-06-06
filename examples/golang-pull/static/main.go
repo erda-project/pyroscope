@@ -11,7 +11,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/pyroscope-io/client/pyroscope"
+	"github.com/grafana/pyroscope-go"
 )
 
 //go:noinline

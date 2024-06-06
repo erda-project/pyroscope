@@ -10,7 +10,7 @@ import (
 	"runtime/pprof"
 	"sync"
 
-	"github.com/pyroscope-io/client/pyroscope"
+	"github.com/grafana/pyroscope-go"
 )
 
 //go:noinline
